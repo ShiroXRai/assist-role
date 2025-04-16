@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Database Table Viewer</title>
+    <style>
+      :root {
+        --primary-color: #2196f3;
+        --primary-dark: #1976d2;
+        --secondary-color: #607d8b;
+        --background-color: #f5f5f5;
+        --text-color: #333;
+        --border-radius: 8px;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--background-color);
+        color: var(--text-color);
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: var(--primary-dark);
+        margin-bottom: 30px;
+        font-size: 2em;
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+      }
+
+      .role-selector {
+        margin-bottom: 30px;
+        padding: 20px;
+        background-color: white;
+        border-radius: var(--border-radius);
+        border: 1px solid #e0e0e0;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--secondary-color);
+        font-weight: 500;
+      }
+
+      select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-size: 16px;
+        color: var(--text-color);
+        background-color: white;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 12px auto;
+      }
+
+      select:not(:disabled):hover {
+        border-color: var(--primary-color);
+      }
+
+      select:not(:disabled):focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+      }
+
+      select:disabled {
+        background-color: #f5f5f5;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 20px;
+        background-color: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      th,
+      td {
+        padding: 16px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      th {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover {
+        background-color: rgba(33, 150, 243, 0.05);
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        border: 2px solid var(--secondary-color);
+        border-radius: 3px;
+        transition: all 0.2s ease;
+      }
+
+      input[type="checkbox"]:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+
+      .error-message {
+        color: #f44336;
+        background-color: #ffebee;
+        padding: 16px;
+        border-radius: var(--border-radius);
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .loading-message {
+        color: var(--primary-color);
+        background-color: rgba(33, 150, 243, 0.1);
+        padding: 16px;
+        border-radius: var(--border-radius);
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 20px;
+        }
+
+        th,
+        td {
+          padding: 12px;
+        }
+
+        select {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Database Table Viewer</h1>
+      <div class="role-selector">
+        <label for="roleSelect">Select Role:</label>
+        <select id="roleSelect" onchange="handleRoleChange(this.value)">
+          <option value="">-- Select Role --</option>
+          <!-- Roles will be populated here by JavaScript -->
+        </select>
+      </div>
+      <table id="columnsTable">
+        <thead>
+          <tr>
+            <th>Column Name</th>
+            <th>Data Type</th>
+            <th>Visible</th>
+          </tr>
+        </thead>
+        <tbody id="columnsBody">
+          <!-- Columns will be populated here by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const tableName = urlParams.get("table");
+      let userRole = urlParams.get("role");
+
+      async function handleRoleChange(selectedRole) {
+        userRole = selectedRole;
+        await fetchColumns();
+      }
+
+      async function fetchRoles() {
+        const roleSelect = document.getElementById("roleSelect");
+        const columnsBody = document.getElementById("columnsBody");
+
+        try {
+          // Disable select and show loading state
+          roleSelect.disabled = true;
+          roleSelect.innerHTML = '<option value="">Loading roles...</option>';
+
+          const response = await fetch("/api/roles");
+          if (!response.ok) {
+            throw new Error(`Failed to fetch roles: ${response.statusText}`);
+          }
+
+          const roles = await response.json();
+
+          if (!Array.isArray(roles) || roles.length === 0) {
+            throw new Error("No roles available");
+          }
+
+          // Populate roles dropdown
+          roleSelect.innerHTML = '<option value="">-- Select Role --</option>';
+          roles.forEach((role) => {
+            const option = document.createElement("option");
+            option.value = role;
+            option.textContent = role;
+            roleSelect.appendChild(option);
+          });
+
+          // If userRole is set from URL params, select it and fetch columns
+          if (userRole) {
+            roleSelect.value = userRole;
+            await fetchColumns();
+          }
+        } catch (error) {
+          console.error("Error fetching roles:", error);
+          roleSelect.innerHTML =
+            '<option value="">Error loading roles</option>';
+
+          columnsBody.innerHTML = `
+            <tr>
+              <td colspan="3">
+                <div class="error-message">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12" y2="16"></line>
+                  </svg>
+                  ${error.message}
+                </div>
+              </td>
+            </tr>`;
+        } finally {
+          // Always re-enable the select
+          roleSelect.disabled = false;
+        }
+      }
+
+      async function fetchColumns() {
+        const columnsBody = document.getElementById("columnsBody");
+
+        if (!userRole || !tableName) {
+          columnsBody.innerHTML = `
+            <tr>
+              <td colspan="3">
+                <div class="error-message">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12" y2="16"></line>
+                  </svg>
+                  Please select a role and table.
+                </div>
+              </td>
+            </tr>`;
+          return;
+        }
+
+        try {
+          // Show loading state
+          columnsBody.innerHTML = `
+            <tr>
+              <td colspan="3">
+                <div class="loading-message">
+                  <svg class="loading-spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 2a10 10 0 0 1 10 10"></path>
+                  </svg>
+                  Loading columns...
+                </div>
+              </td>
+            </tr>`;
+
+          // Fetch current visibility settings
+          const visibilityResponse = await fetch(
+            `/api/column-visibility/${userRole}/${tableName}`
+          );
+          const hiddenColumns = await visibilityResponse.json();
+
+          // Fetch columns with visibility
+          const response = await fetch(`/api/columns/${tableName}/${userRole}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch columns: ${response.statusText}`);
+          }
+
+          const columns = await response.json();
+
+          if (!Array.isArray(columns) || columns.length === 0) {
+            throw new Error("No columns available for this table");
+          }
+
+          columnsBody.innerHTML = "";
+          columns.forEach((col) => {
+            const row = document.createElement("tr");
+
+            const nameCell = document.createElement("td");
+            nameCell.textContent = col.COLUMN_NAME;
+            row.appendChild(nameCell);
+
+            const typeCell = document.createElement("td");
+            typeCell.textContent = col.DATA_TYPE;
+            row.appendChild(typeCell);
+
+            const visibilityCell = document.createElement("td");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = !hiddenColumns.includes(col.COLUMN_NAME);
+            checkbox.onchange = () =>
+              updateColumnVisibility(col.COLUMN_NAME, checkbox.checked);
+            visibilityCell.appendChild(checkbox);
+            row.appendChild(visibilityCell);
+
+            columnsBody.appendChild(row);
+          });
+        } catch (error) {
+          console.error("Error fetching columns:", error);
+          columnsBody.innerHTML = `
+            <tr>
+              <td colspan="3">
+                <div class="error-message">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12" y2="16"></line>
+                  </svg>
+                  ${error.message}
+                </div>
+              </td>
+            </tr>`;
+        }
+      }
+
+      async function updateColumnVisibility(columnName, isVisible) {
+        try {
+          // Get current hidden columns
+          const visibilityResponse = await fetch(
+            `/api/column-visibility/${userRole}/${tableName}`
+          );
+          const currentHiddenColumns = await visibilityResponse.json();
+
+          // Update hidden columns list
+          let hiddenColumns;
+          if (isVisible) {
+            hiddenColumns = currentHiddenColumns
+              .filter((col) => col !== columnName)
+              .join(",");
+          } else {
+            hiddenColumns = [...currentHiddenColumns, columnName].join(",");
+          }
+
+          // Save updated visibility settings
+          const response = await fetch("/api/column-visibility", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              role: userRole,
+              table_name: tableName,
+              hidden_columns: hiddenColumns,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to update column visibility");
+          }
+
+          // Refresh the columns display
+          await fetchColumns();
+
+          console.log("Column visibility updated successfully");
+        } catch (error) {
+          console.error("Error updating column visibility:", error);
+        }
+      }
+
+      // Initialize
+      fetchRoles();
+    </script>
+  </body>
+</html>
