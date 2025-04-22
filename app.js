@@ -45,21 +45,7 @@ app.get("/api/columns/:table/:role", async (req, res) => {
         "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName"
       );
 
-    // Then get hidden columns for this role and table
-    const visibilityResult = await pool
-      .request()
-      .input("role", sql.NVarChar, req.params.role)
-      .input("table", sql.NVarChar, req.params.table)
-      .query(
-        "SELECT hidden_columns FROM column_visibility WHERE role = @role AND table_name = @table"
-      );
-
-    const hiddenColumns =
-      visibilityResult.recordset.length > 0
-        ? visibilityResult.recordset[0].hidden_columns
-            .split(",")
-            .filter((col) => col !== "")
-        : [];
+    const hiddenColumns = [];
 
     // Filter out hidden columns
     const visibleColumns = columnsResult.recordset.filter(
