@@ -15,7 +15,31 @@ app.get("/api/tables", async (req, res) => {
       .query(
         "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
       );
-    res.json(result.recordset.map((item) => item.TABLE_NAME));
+    res.json([
+      ...result.recordset
+        .filter((item) =>
+          [
+            "Factory",
+            "FactoryContact",
+            "DealerContact",
+            "Product",
+            "MasterCustomer",
+            "WarrantyRegistration",
+            "CustomerRequest",
+            "Quotation",
+            "CustomerRequestReport",
+            "CustomerRequestCosting",
+            "Invoice",
+            "WarrantyClaim",
+          ].includes(item.TABLE_NAME)
+        )
+        .map((item) => item.TABLE_NAME),
+      "MachineEnginePopulation",
+      "ServiceTransaction",
+      "ServiceCosting",
+      "ServiceAccuracy",
+      "General",
+    ]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -25,8 +49,10 @@ app.get("/api/tables", async (req, res) => {
 app.get("/api/roles", async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT Name FROM Role"); // Assuming the roles table has a column named 'Name'
-    res.json(result.recordset.map((item) => item.Name));
+    const result = await pool.request().query("SELECT ID, Name FROM Role"); // Return role_id and Name
+    res.json(
+      result.recordset.map((item) => ({ id: item.ID, name: item.Name }))
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -51,6 +77,53 @@ app.get("/api/columns/:table/:role", async (req, res) => {
     const visibleColumns = columnsResult.recordset.filter(
       (column) => !hiddenColumns.includes(column.COLUMN_NAME)
     );
+    if (req.params.table == "WarrantyRegistration") {
+      res.json([
+        { COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "Region", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "Telephone", DATA_TYPE: "bigint" },
+        { COLUMN_NAME: "Address", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "KelompokTani", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "Username", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "UserTelephone", DATA_TYPE: "bigint" },
+        { COLUMN_NAME: "UserAddress", DATA_TYPE: "nvarchar" },
+      ]);
+    }
+    if (req.params.table == "CustomerRequest") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "CustomerRequestReport") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "Quotation") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "CustomerRequestCosting") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+
+    if (req.params.table == "Invoice") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+
+    if (req.params.table == "WarrantyClaim") {
+      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "MachineEnginePopulation") {
+      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "ServiceTransaction") {
+      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "ServiceCosting") {
+      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "ServiceAccuracy") {
+      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+    }
+    if (req.params.table == "General") {
+      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+    }
 
     res.json(visibleColumns);
   } catch (err) {
@@ -60,38 +133,38 @@ app.get("/api/columns/:table/:role", async (req, res) => {
 
 // Save column visibility settings
 app.post("/api/column-visibility", async (req, res) => {
-  const { role, table_name, hidden_columns } = req.body;
+  const { RoleId, TableName, HiddenColumn } = req.body;
   try {
     const pool = await poolPromise;
 
     // Check if entry exists
     const existingResult = await pool
       .request()
-      .input("role", sql.NVarChar, role)
-      .input("table_name", sql.NVarChar, table_name)
+      .input("RoleId", sql.Int, RoleId)
+      .input("TableName", sql.NVarChar, TableName)
       .query(
-        "SELECT id FROM column_visibility WHERE role = @role AND table_name = @table_name"
+        "SELECT ID FROM column_visibility WHERE RoleId = @RoleId AND TableName = @TableName"
       );
 
     if (existingResult.recordset.length > 0) {
       // Update existing entry
       await pool
         .request()
-        .input("role", sql.NVarChar, role)
-        .input("table_name", sql.NVarChar, table_name)
-        .input("hidden_columns", sql.NVarChar, hidden_columns)
+        .input("RoleId", sql.Int, RoleId)
+        .input("TableName", sql.NVarChar, TableName)
+        .input("HiddenColumn", sql.NVarChar, HiddenColumn)
         .query(
-          "UPDATE column_visibility SET hidden_columns = @hidden_columns WHERE role = @role AND table_name = @table_name"
+          "UPDATE column_visibility SET HiddenColumn = @HiddenColumn WHERE RoleId = @RoleId AND TableName = @TableName"
         );
     } else {
       // Insert new entry
       await pool
         .request()
-        .input("role", sql.NVarChar, role)
-        .input("table_name", sql.NVarChar, table_name)
-        .input("hidden_columns", sql.NVarChar, hidden_columns)
+        .input("RoleId", sql.Int, RoleId)
+        .input("TableName", sql.NVarChar, TableName)
+        .input("HiddenColumn", sql.NVarChar, HiddenColumn)
         .query(
-          "INSERT INTO column_visibility (role, table_name, hidden_columns) VALUES (@role, @table_name, @hidden_columns)"
+          "INSERT INTO column_visibility (RoleId, TableName, HiddenColumn) VALUES (@RoleId, @TableName, @HiddenColumn)"
         );
     }
 
@@ -102,22 +175,57 @@ app.post("/api/column-visibility", async (req, res) => {
 });
 
 // Retrieve column visibility settings
-app.get("/api/column-visibility/:role/:table", async (req, res) => {
-  const { role, table } = req.params;
+app.get("/api/column-visibility/:RoleId/:TableName", async (req, res) => {
+  const { RoleId, TableName } = req.params;
   try {
     const pool = await poolPromise;
     const result = await pool
       .request()
-      .input("role", sql.NVarChar, role)
-      .input("table", sql.NVarChar, table)
+      .input("RoleId", sql.Int, RoleId)
+      .input("TableName", sql.NVarChar, TableName)
       .query(
-        "SELECT hidden_columns FROM column_visibility WHERE role = @role AND table_name = @table"
+        "SELECT HiddenColumn FROM column_visibility WHERE RoleId = @RoleId AND TableName = @TableName"
       );
+    // console.log(result);
+
     const hiddenColumns =
       result.recordset.length > 0
-        ? result.recordset[0].hidden_columns.split(",")
+        ? result.recordset[0].HiddenColumn.split(",")
         : [];
     res.json(hiddenColumns);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST endpoint to create AuditTrial data
+app.post("/api/audittrial", async (req, res) => {
+  const { Action, TableName, RecordId, UserId, Timestamp } = req.body;
+  try {
+    const pool = await poolPromise;
+    await pool
+      .request()
+      .input("Action", sql.NVarChar, Action)
+      .input("TableName", sql.NVarChar, TableName)
+      .input("UserId", sql.Int, UserId)
+      .input("Timestamp", sql.DateTime, Timestamp)
+      .query(
+        "INSERT INTO AuditTrial (Action, TableName, RecordId, UserId, Timestamp) VALUES (@Action, @TableName, @RecordId, @UserId, @Timestamp)"
+      );
+    res.status(201).json({ message: "AuditTrial record created." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET endpoint to retrieve AuditTrial data
+app.get("/api/audittrial", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .query("SELECT * FROM AuditTrial ORDER BY Timestamp DESC");
+    res.json(result.recordset);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

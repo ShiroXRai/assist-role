@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AuditTrial Viewer</title>
+    <style>
+      :root {
+        --primary-color: #dd4b39;
+        --primary-dark: #e47365;
+        --secondary-color: #607d8b;
+        --background-color: #f5f5f5;
+        --text-color: #333;
+        --border-radius: 8px;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--background-color);
+        color: var(--text-color);
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: var(--primary-dark);
+        margin-bottom: 30px;
+        font-size: 2em;
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 20px;
+        background-color: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      th,
+      td {
+        padding: 16px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      th {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover {
+        background-color: rgba(33, 150, 243, 0.05);
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 20px;
+        }
+
+        th,
+        td {
+          padding: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AuditTrial Records</h1>
+      <table id="audittrial-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>TableName</th>
+            <th>UserId</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data rows will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      async function fetchAuditTrial() {
+        try {
+          const response = await fetch("/api/audittrial");
+          const data = await response.json();
+          const tbody = document
+            .getElementById("audittrial-table")
+            .getElementsByTagName("tbody")[0];
+          tbody.innerHTML = "";
+          data.forEach((record) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${record.Action}</td>
+              <td>${record.TableName}</td>
+              <td>${record.UserId}</td>
+              <td>${new Date(record.Timestamp).toLocaleString()}</td>
+            `;
+            tbody.appendChild(row);
+          });
+        } catch (error) {
+          console.error("Error fetching AuditTrial data:", error);
+        }
+      }
+
+      // Fetch data on page load
+      fetchAuditTrial();
+    </script>
+  </body>
+</html>

@@ -186,7 +186,7 @@
   </head>
   <body>
     <div class="container">
-      <h1>Database Table Viewer</h1>
+      <h1 id="pageTitle">Database Table Viewer</h1>
       <div class="role-selector">
         <label for="roleSelect">Select Role:</label>
         <select id="roleSelect" onchange="handleRoleChange(this.value)">
@@ -211,10 +211,16 @@
     <script>
       const urlParams = new URLSearchParams(window.location.search);
       const tableName = urlParams.get("table");
-      let userRole = urlParams.get("role");
+      let userRoleId = urlParams.get("RoleId");
 
-      async function handleRoleChange(selectedRole) {
-        userRole = selectedRole;
+      // Update page title with table name if present
+      if (tableName) {
+        const pageTitle = document.getElementById("pageTitle");
+        pageTitle.textContent = `Database Table Viewer - ${tableName}`;
+      }
+
+      async function handleRoleChange(selectedRoleId) {
+        userRoleId = selectedRoleId;
         await fetchColumns();
       }
 
@@ -242,14 +248,14 @@
           roleSelect.innerHTML = '<option value="">-- Select Role --</option>';
           roles.forEach((role) => {
             const option = document.createElement("option");
-            option.value = role;
-            option.textContent = role;
+            option.value = role.id;
+            option.textContent = role.name;
             roleSelect.appendChild(option);
           });
 
-          // If userRole is set from URL params, select it and fetch columns
-          if (userRole) {
-            roleSelect.value = userRole;
+          // If userRoleId is set from URL params, select it and fetch columns
+          if (userRoleId) {
+            roleSelect.value = userRoleId;
             await fetchColumns();
           }
         } catch (error) {
@@ -279,7 +285,7 @@
       async function fetchColumns() {
         const columnsBody = document.getElementById("columnsBody");
 
-        if (!userRole || !tableName) {
+        if (!userRoleId || !tableName) {
           columnsBody.innerHTML = `
             <tr>
               <td colspan="3">
@@ -313,12 +319,16 @@
 
           // Fetch current visibility settings
           const visibilityResponse = await fetch(
-            `/api/column-visibility/${userRole}/${tableName}`
+            `/api/column-visibility/${userRoleId}/${tableName}`
           );
+
           const hiddenColumns = await visibilityResponse.json();
 
           // Fetch columns with visibility
-          const response = await fetch(`/api/columns/${tableName}/${userRole}`);
+
+          const response = await fetch(
+            `/api/columns/${tableName}/${userRoleId}`
+          );
           if (!response.ok) {
             throw new Error(`Failed to fetch columns: ${response.statusText}`);
           }
@@ -377,7 +387,7 @@
         try {
           // Get current hidden columns
           const visibilityResponse = await fetch(
-            `/api/column-visibility/${userRole}/${tableName}`
+            `/api/column-visibility/${userRoleId}/${tableName}`
           );
           const currentHiddenColumns = await visibilityResponse.json();
 
@@ -398,9 +408,9 @@
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              role: userRole,
-              table_name: tableName,
-              hidden_columns: hiddenColumns,
+              RoleId: userRoleId,
+              TableName: tableName,
+              HiddenColumn: hiddenColumns,
             }),
           });
 
