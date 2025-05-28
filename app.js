@@ -1,10 +1,28 @@
 const express = require("express");
 const { poolPromise, sql } = require("./db");
+const cors = require("cors");
 const app = express();
 const port = 3000;
+app.use(cors());
 
 app.use(express.static("public"));
 app.use(express.json()); // Middleware to parse JSON request bodies
+
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const { executeSQL } = require("./db");
+
+// Setup multer for file uploads
+const upload = multer({ dest: "uploads/" });
+
+// In-memory store for upload status (can be replaced with DB)
+const uploadStatus = {};
+
+// API to get upload status for all jobs
+app.get("/api/upload-status", (req, res) => {
+  res.json(uploadStatus);
+});
 
 // Get all tables
 app.get("/api/tables", async (req, res) => {
@@ -93,7 +111,12 @@ app.get("/api/columns/:table/:role", async (req, res) => {
       res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
     }
     if (req.params.table == "CustomerRequestReport") {
-      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+      res.json([
+        { COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerAddress", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerTelephone", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerType", DATA_TYPE: "nvarchar" },
+      ]);
     }
     if (req.params.table == "Quotation") {
       res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
@@ -107,10 +130,22 @@ app.get("/api/columns/:table/:role", async (req, res) => {
     }
 
     if (req.params.table == "WarrantyClaim") {
-      res.json([{ COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" }]);
+      res.json([
+        { COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerAddress", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerPhone", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerType", DATA_TYPE: "nvarchar" },
+      ]);
     }
     if (req.params.table == "MachineEnginePopulation") {
-      res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
+      res.json([
+        { COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerCode", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerName", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerAddress", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerPhone", DATA_TYPE: "nvarchar" },
+        { COLUMN_NAME: "CustomerType", DATA_TYPE: "nvarchar" },
+      ]);
     }
     if (req.params.table == "ServiceTransaction") {
       res.json([{ COLUMN_NAME: "Download", DATA_TYPE: "nvarchar" }]);
@@ -200,17 +235,18 @@ app.get("/api/column-visibility/:RoleId/:TableName", async (req, res) => {
 
 // POST endpoint to create AuditTrial data
 app.post("/api/audittrial", async (req, res) => {
-  const { Action, TableName, RecordId, UserId, Timestamp } = req.body;
+  const { Action, TableName, UserId, RecordId } = req.body;
   try {
     const pool = await poolPromise;
     await pool
       .request()
       .input("Action", sql.NVarChar, Action)
+      .input("RecordId", sql.Int, RecordId)
       .input("TableName", sql.NVarChar, TableName)
       .input("UserId", sql.Int, UserId)
-      .input("Timestamp", sql.DateTime, Timestamp)
+      // .input("Timestamp", sql.DateTime, Timestamp)
       .query(
-        "INSERT INTO AuditTrial (Action, TableName, RecordId, UserId, Timestamp) VALUES (@Action, @TableName, @RecordId, @UserId, @Timestamp)"
+        "INSERT INTO AuditTrial (Action, TableName, RecordId, UserId) VALUES (@Action, @TableName, @RecordId, @UserId)"
       );
     res.status(201).json({ message: "AuditTrial record created." });
   } catch (err) {
@@ -229,6 +265,73 @@ app.get("/api/audittrial", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post("/api/execute/:jobName", async (req, res) => {
+  const jobName = req.params.jobName;
+  const uploadedFilePath = path.join(__dirname, "uploads", `${jobName}.xlsx`);
+  // return uploadedFilePath;
+  if (!fs.existsSync(uploadedFilePath)) {
+    return res.status(404).json({ error: "Uploaded file not found" });
+  }
+
+  let job_name;
+  if (jobName == "ReadDataGPACK") {
+    job_name = "Read Data GPACK";
+  }
+
+  try {
+    const pool = await poolPromise;
+    // Start SQL Server Agent job
+    await pool
+      .request()
+      .input("job_name", sql.NVarChar, job_name)
+      .execute("msdb.dbo.sp_start_job");
+
+    // Delete uploaded file after starting job
+    fs.unlinkSync(uploadedFilePath);
+
+    // Update upload status with sanitized key (remove spaces)
+    const sanitizedJobName = jobName.replace(/\s/g, "");
+    uploadStatus[sanitizedJobName] = false;
+
+    res.json({
+      message: `SQL Server Agent job ${jobName} started successfully and uploaded file deleted.`,
+    });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ error: `Error starting SQL Server Agent job: ${err.message}` });
+  }
+});
+
+app.post("/api/upload/:jobName", upload.single("file"), (req, res) => {
+  const file = req.file;
+  const jobName = req.params.jobName;
+
+  if (!file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  const targetPath = path.join(
+    __dirname,
+    "uploads",
+    `${jobName.replace(/\s/g, "")}.xlsx`
+  );
+
+  fs.rename(file.path, targetPath, (err) => {
+    if (err) {
+      return res.status(500).json({ error: "Error saving file" });
+    }
+
+    // Update upload status with sanitized key (remove spaces)
+    const sanitizedJobName = jobName.replace(/\s/g, "");
+    uploadStatus[sanitizedJobName] = true;
+
+    // TODO: Implement parsing and importing data from the file
+
+    res.json({ message: `File uploaded successfully for job ${jobName}` });
+  });
 });
 
 app.listen(port, () => {

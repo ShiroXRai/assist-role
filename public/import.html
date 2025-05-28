@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import Data</title>
+    <style>
+      :root {
+        --primary-color: #dd4b39;
+        --primary-dark: #e47365;
+        --secondary-color: #607d8b;
+        --background-color: #f5f5f5;
+        --text-color: #333;
+        --border-radius: 8px;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--background-color);
+        color: var(--text-color);
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: var(--primary-dark);
+        margin-bottom: 30px;
+        font-size: 2em;
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 20px;
+        background-color: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      th,
+      td {
+        padding: 16px;
+        text-align: center;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      th {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover {
+        background-color: rgba(33, 150, 243, 0.05);
+      }
+
+      button {
+        padding: 6px 12px;
+        background-color: var(--primary-color);
+        border: none;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: var(--primary-dark);
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 20px;
+        }
+
+        th,
+        td {
+          padding: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Import Data</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>File Name</th>
+            <th>Upload Data</th>
+            <th>Job SQL</th>
+            <th>Status</th>
+            <th>Process</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Part List</td>
+            <td>
+              <input
+                type="file"
+                style="display: none"
+                id="upload-PartList"
+                onchange="uploadFile('Read Data RPMS', this)"
+              />
+              <button
+                onclick="document.getElementById('upload-PartList').click()"
+              >
+                Upload
+              </button>
+            </td>
+            <td>Read Data RPMS</td>
+            <td id="status-ReadDataRPMS">Not uploaded</td>
+            <td>
+              <button onclick="executeJob('Read Data RPMS')">Execute</button>
+            </td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Data HM</td>
+            <td>
+              <input
+                type="file"
+                style="display: none"
+                id="upload-DataHM"
+                onchange="uploadFile('Update HM', this)"
+              />
+              <button
+                onclick="document.getElementById('upload-DataHM').click()"
+              >
+                Upload
+              </button>
+            </td>
+            <td>Update HM</td>
+            <td id="status-UpdateHM">Not uploaded</td>
+            <td><button onclick="executeJob('Update HM')">Execute</button></td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>XX PO Delivery</td>
+            <td>
+              <input
+                type="file"
+                style="display: none"
+                id="upload-XXPODelivery"
+                onchange="uploadFile('XX PO Delivery', this)"
+              />
+              <button
+                onclick="document.getElementById('upload-XXPODelivery').click()"
+              >
+                Upload
+              </button>
+            </td>
+            <td></td>
+            <td id="status-XXPODelivery">Not uploaded</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>XX PO Shipping</td>
+            <td>
+              <input
+                type="file"
+                style="display: none"
+                id="upload-ReadDataGPACK"
+                onchange="uploadFile('Read Data GPACK', this)"
+              />
+              <button
+                onclick="document.getElementById('upload-ReadDataGPACK').click()"
+              >
+                Upload
+              </button>
+            </td>
+            <td>Read Data GPACK</td>
+            <td id="status-ReadDataGPACK">Not uploaded</td>
+            <td>
+              <button onclick="executeJob('Read Data GPACK')">Execute</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <script>
+      async function fetchUploadStatus() {
+        try {
+          const response = await fetch("/api/upload-status");
+          const status = await response.json();
+          console.log(status);
+
+          for (const [jobName, uploaded] of Object.entries(status)) {
+            const statusElement = document.getElementById(
+              `status-${jobName.replace(/\s/g, "")}`
+            );
+            const executeButton = statusElement?.parentElement.querySelector(
+              'button[onclick^="executeJob"]'
+            );
+
+            console.log(statusElement, executeButton);
+
+            if (statusElement) {
+              statusElement.textContent = uploaded
+                ? "Uploaded"
+                : "Not uploaded";
+            }
+            if (executeButton) {
+              executeButton.style.display = uploaded ? "inline-block" : "none";
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch upload status:", error);
+        }
+      }
+
+      async function uploadFile(jobName, inputElement) {
+        const file = inputElement.files[0];
+        if (!file) {
+          alert("Please select a file to upload.");
+          return;
+        }
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await fetch(`/api/upload/${jobName}`, {
+            method: "POST",
+            body: formData,
+          });
+          const result = await response.json();
+          if (response.ok) {
+            // alert(result.message);
+            await fetchUploadStatus();
+          } else {
+            alert("Upload failed: " + result.error);
+          }
+        } catch (error) {
+          alert("Upload error: " + error.message);
+        }
+      }
+
+      async function executeJob(jobName) {
+        try {
+          const response = await fetch(
+            `/api/execute/${jobName.replace(/\s/g, "")}`,
+            {
+              method: "POST",
+            }
+          );
+          const result = await response.json();
+          if (response.ok) {
+            alert(result.message);
+          } else {
+            alert("Execution failed: " + result.error);
+          }
+        } catch (error) {
+          alert("Execution error: " + error.message);
+        }
+      }
+
+      // Initially hide all execute buttons
+      document
+        .querySelectorAll('button[onclick^="executeJob"]')
+        .forEach((btn) => {
+          btn.style.display = "none";
+        });
+
+      // Fetch upload status on page load
+      fetchUploadStatus();
+    </script>
+  </body>
+</html>
