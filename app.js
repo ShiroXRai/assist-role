@@ -3,13 +3,14 @@ const { poolPromise, sql } = require("./db");
 const cors = require("cors");
 const app = express();
 const port = 3000;
+const path = require("path");
 app.use(cors());
 
 app.use(express.static("public"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(express.json()); // Middleware to parse JSON request bodies
 
 const multer = require("multer");
-const path = require("path");
 const fs = require("fs");
 const { executeSQL } = require("./db");
 
@@ -260,7 +261,9 @@ app.get("/api/audittrial", async (req, res) => {
     const pool = await poolPromise;
     const result = await pool
       .request()
-      .query("SELECT * FROM AuditTrial ORDER BY Timestamp DESC");
+      .query(
+        "SELECT at.*, u.id AS user_id_from_user_table, u.Username FROM AuditTrial at LEFT JOIN [User] u ON at.UserId = u.id ORDER BY at.Timestamp DESC;"
+      );
     res.json(result.recordset);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -313,24 +316,83 @@ app.post("/api/upload/:jobName", upload.single("file"), (req, res) => {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
-  const targetPath = path.join(
-    __dirname,
-    "uploads",
-    `${jobName.replace(/\s/g, "")}.xlsx`
-  );
+  const sanitizedJobName = jobName.replace(/\s/g, "");
+  let finalFileName;
+  if (sanitizedJobName == "ReadDataGPACK") {
+    finalFileName = "XXONT__Warehouse_Shipping_Repo_.xlsx";
+  } else if (sanitizedJobName == "XXPODelivery") {
+    finalFileName = "XXPO__PO_Delivery_Report_for_C_.xlsx";
+  } else {
+    finalFileName = `${sanitizedJobName}.xlsx`;
+  }
 
-  fs.rename(file.path, targetPath, (err) => {
-    if (err) {
-      return res.status(500).json({ error: "Error saving file" });
+  // Path utama untuk menyimpan file (di dalam direktori proyek)
+  const primaryTargetPath = path.join(__dirname, "uploads", finalFileName);
+
+  // Path kedua untuk menyimpan file
+  const secondaryDir = path.join("C:", "Data Gpack"); // Perhatikan: path absolut Windows
+  const secondaryTargetPath = path.join(secondaryDir, finalFileName);
+
+  // Langkah 1: Pindahkan file dari lokasi sementara multer ke lokasi utama
+  fs.rename(file.path, primaryTargetPath, (renameErr) => {
+    if (renameErr) {
+      console.error(
+        "Error renaming/moving file to primary location:",
+        renameErr
+      );
+      return res
+        .status(500)
+        .json({ error: "Error saving file to primary location" });
     }
 
-    // Update upload status with sanitized key (remove spaces)
-    const sanitizedJobName = jobName.replace(/\s/g, "");
+    console.log(`File successfully saved to ${primaryTargetPath}`);
+
+    // Update upload status (jika masih digunakan)
     uploadStatus[sanitizedJobName] = true;
 
-    // TODO: Implement parsing and importing data from the file
+    // Langkah 2: Salin file dari lokasi utama ke lokasi kedua (C:\Data Gpack)
+    try {
+      // Pastikan direktori kedua ada, jika tidak buat direktorinya
+      if (!fs.existsSync(secondaryDir)) {
+        fs.mkdirSync(secondaryDir, { recursive: true });
+        console.log(`Directory created: ${secondaryDir}`);
+      }
 
-    res.json({ message: `File uploaded successfully for job ${jobName}` });
+      // Salin file
+      fs.copyFile(primaryTargetPath, secondaryTargetPath, (copyErr) => {
+        if (copyErr) {
+          console.error(
+            `Error copying file to ${secondaryTargetPath}:`,
+            copyErr
+          );
+          // File berhasil diunggah ke lokasi utama, tetapi gagal disalin ke lokasi kedua
+          // Kirim respons yang mengindikasikan ini
+          return res.json({
+            message: `File uploaded successfully to ${primaryTargetPath} for job ${jobName}, but failed to copy to ${secondaryTargetPath}. Error: ${copyErr.message}`,
+            primaryPath: primaryTargetPath,
+            secondaryPathAttempted: secondaryTargetPath,
+          });
+        }
+
+        console.log(`File successfully copied to ${secondaryTargetPath}`);
+        res.json({
+          message: `File uploaded successfully for job ${jobName} to ${primaryTargetPath} and copied to ${secondaryTargetPath}`,
+          primaryPath: primaryTargetPath,
+          secondaryPath: secondaryTargetPath,
+        });
+      });
+    } catch (setupErr) {
+      // Tangani error jika pembuatan direktori atau persiapan path kedua gagal
+      console.error(
+        `Error setting up or copying to secondary path ${secondaryTargetPath}:`,
+        setupErr
+      );
+      res.json({
+        message: `File uploaded successfully to ${primaryTargetPath} for job ${jobName}, but failed during setup or copy to secondary path. Error: ${setupErr.message}`,
+        primaryPath: primaryTargetPath,
+        secondaryPathAttempted: secondaryTargetPath,
+      });
+    }
   });
 });
 

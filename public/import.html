@@ -209,6 +209,10 @@
           const status = await response.json();
           console.log(status);
 
+          // Check if both ReadDataGPACK and UpdateHM are uploaded
+          const isReadDataGPACKUploaded = status["ReadDataGPACK"] === true;
+          const isUpdateHMUploaded = status["XXPODelivery"] === true;
+
           for (const [jobName, uploaded] of Object.entries(status)) {
             const statusElement = document.getElementById(
               `status-${jobName.replace(/\s/g, "")}`
@@ -217,15 +221,31 @@
               'button[onclick^="executeJob"]'
             );
 
-            console.log(statusElement, executeButton);
-
             if (statusElement) {
-              statusElement.textContent = uploaded
-                ? "Uploaded"
-                : "Not uploaded";
+              if (uploaded) {
+                const jobKey = jobName.replace(/\s/g, "");
+                // Link directly to the static file path under /uploads/
+                // Assuming uploaded files have the same name as jobKey with .xlsx extension
+                statusElement.innerHTML = `<a href="/uploads/${jobKey}.xlsx" target="_blank" rel="noopener noreferrer">Uploaded</a>`;
+              } else {
+                statusElement.textContent = "Not uploaded";
+              }
             }
+
             if (executeButton) {
-              executeButton.style.display = uploaded ? "inline-block" : "none";
+              if (jobName === "ReadDataGPACK") {
+                console.log(isReadDataGPACKUploaded, isUpdateHMUploaded);
+
+                // Show button only if both files are uploaded
+                executeButton.style.display =
+                  isReadDataGPACKUploaded && isUpdateHMUploaded
+                    ? "inline-block"
+                    : "none";
+              } else {
+                executeButton.style.display = uploaded
+                  ? "inline-block"
+                  : "none";
+              }
             }
           }
         } catch (error) {
