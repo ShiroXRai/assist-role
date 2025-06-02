@@ -272,11 +272,21 @@ app.get("/api/audittrial", async (req, res) => {
 
 app.post("/api/execute/:jobName", async (req, res) => {
   const jobName = req.params.jobName;
-  const uploadedFilePath = path.join(__dirname, "uploads", `${jobName}.xlsx`);
-  // return uploadedFilePath;
-  if (!fs.existsSync(uploadedFilePath)) {
-    return res.status(404).json({ error: "Uploaded file not found" });
+  let file_name;
+  if (jobName == "ReadDataGPACK") {
+    file_name = "XXONT__Warehouse_Shipping_Repo_";
+  } else if (jobName == "XXPODelivery") {
+    file_name = "XXPO__PO_Delivery_Report_for_C_";
+  } else {
+    file_name = `${jobName}`;
   }
+  const uploadedFilePath = path.join(__dirname, "uploads", `${file_name}.xlsx`);
+  // return uploadedFilePath;
+  // console.log(jobName);
+
+  // if (!fs.existsSync(uploadedFilePath)) {
+  //   return res.status(404).json({ error: "Uploaded file not found" });
+  // }
 
   let job_name;
   if (jobName == "ReadDataGPACK") {
@@ -292,14 +302,21 @@ app.post("/api/execute/:jobName", async (req, res) => {
       .execute("msdb.dbo.sp_start_job");
 
     // Delete uploaded file after starting job
-    fs.unlinkSync(uploadedFilePath);
+    // fs.unlinkSync(uploadedFilePath);
+    if (jobName == "ReadDataGPACK") {
+      // fs.unlinkSync(
+      //   path.join(__dirname, "uploads", `XXPO__PO_Delivery_Report_for_C_.xlsx`)
+      // );
+
+      uploadStatus["XXPODelivery"] = false;
+    }
 
     // Update upload status with sanitized key (remove spaces)
     const sanitizedJobName = jobName.replace(/\s/g, "");
     uploadStatus[sanitizedJobName] = false;
 
     res.json({
-      message: `SQL Server Agent job ${jobName} started successfully and uploaded file deleted.`,
+      message: `SQL Server Agent job ${jobName} Berhasil Dijalankan.`,
     });
   } catch (err) {
     res
