@@ -290,7 +290,11 @@ app.post("/api/execute/:jobName", async (req, res) => {
 
   let job_name;
   if (jobName == "ReadDataGPACK") {
-    job_name = "Read Data GPACK";
+    job_name = "ASSIST - Read Data GPACK";
+  } else if (jobName == "UpdateHM") {
+    job_name = "ASSIST - Update HM";
+  } else if (jobName == "ReadDataRPMS") {
+    job_name = "ASSIST - Read Data RPMS";
   }
 
   try {
@@ -334,15 +338,19 @@ app.post("/api/upload/:jobName", upload.single("file"), (req, res) => {
   }
 
   const sanitizedJobName = jobName.replace(/\s/g, "");
+
   let finalFileName;
   if (sanitizedJobName == "ReadDataGPACK") {
     finalFileName = "XXONT__Warehouse_Shipping_Repo_.xlsx";
   } else if (sanitizedJobName == "XXPODelivery") {
     finalFileName = "XXPO__PO_Delivery_Report_for_C_.xlsx";
+  } else if (sanitizedJobName == "ReadDataRPMS") {
+    finalFileName = "Part_List.xlsx";
+  } else if (sanitizedJobName == "UpdateHM") {
+    finalFileName = "data_HM.xlsx";
   } else {
     finalFileName = `${sanitizedJobName}.xlsx`;
   }
-
   // Path utama untuk menyimpan file (di dalam direktori proyek)
   const primaryTargetPath = path.join(__dirname, "uploads", finalFileName);
 
