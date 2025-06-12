@@ -204,7 +204,7 @@ app.post("/api/column-visibility", async (req, res) => {
         );
     }
 
-    res.status(200).json({ message: "Column visibility settings saved." });
+    res.status(200).json({ message: "Data Berhasil disimpan." });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

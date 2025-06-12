@@ -182,6 +182,32 @@
           font-size: 14px;
         }
       }
+
+      .loading-spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      /* NEW: Add Button Styling */
+      .button-container {
+        text-align: right;
+        margin-top: 20px;
+      }
+
+      #saveButton {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: var(--border-radius);
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      #saveButton:hover {
+        background-color: var(--primary-dark);
+      }
     </style>
   </head>
   <body>
@@ -198,7 +224,7 @@
         <thead>
           <tr>
             <th>Column Name</th>
-            <th>Data Type</th>
+
             <th>Visible</th>
           </tr>
         </thead>
@@ -206,6 +232,11 @@
           <!-- Columns will be populated here by JavaScript -->
         </tbody>
       </table>
+      <div class="button-container">
+        <button id="saveButton" onclick="saveVisibilityChanges()">
+          Save Changes
+        </button>
+      </div>
     </div>
 
     <script>
@@ -213,10 +244,13 @@
       const tableName = urlParams.get("table");
       let userRoleId = urlParams.get("RoleId");
 
-      // Update page title with table name if present
+      // NEW: A Set to store the state of hidden columns before saving.
+      let pendingHiddenColumns = new Set();
+
       if (tableName) {
-        const pageTitle = document.getElementById("pageTitle");
-        pageTitle.textContent = `Database Table Viewer - ${tableName}`;
+        document.getElementById(
+          "pageTitle"
+        ).textContent = `Database Table Viewer - ${tableName}`;
       }
 
       async function handleRoleChange(selectedRoleId) {
@@ -229,7 +263,6 @@
         const columnsBody = document.getElementById("columnsBody");
 
         try {
-          // Disable select and show loading state
           roleSelect.disabled = true;
           roleSelect.innerHTML = '<option value="">Loading roles...</option>';
 
@@ -239,12 +272,10 @@
           }
 
           const roles = await response.json();
-
           if (!Array.isArray(roles) || roles.length === 0) {
             throw new Error("No roles available");
           }
 
-          // Populate roles dropdown
           roleSelect.innerHTML = '<option value="">-- Select Role --</option>';
           roles.forEach((role) => {
             const option = document.createElement("option");
@@ -253,7 +284,6 @@
             roleSelect.appendChild(option);
           });
 
-          // If userRoleId is set from URL params, select it and fetch columns
           if (userRoleId) {
             roleSelect.value = userRoleId;
             await fetchColumns();
@@ -262,22 +292,11 @@
           console.error("Error fetching roles:", error);
           roleSelect.innerHTML =
             '<option value="">Error loading roles</option>';
-
           columnsBody.innerHTML = `
-            <tr>
-              <td colspan="3">
-                <div class="error-message">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12" y2="16"></line>
-                  </svg>
-                  ${error.message}
-                </div>
-              </td>
-            </tr>`;
+        <tr>
+          <td colspan="2"><div class="error-message">${error.message}</div></td>
+        </tr>`;
         } finally {
-          // Always re-enable the select
           roleSelect.disabled = false;
         }
       }
@@ -287,45 +306,28 @@
 
         if (!userRoleId || !tableName) {
           columnsBody.innerHTML = `
-            <tr>
-              <td colspan="3">
-                <div class="error-message">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12" y2="16"></line>
-                  </svg>
-                  Please select a role and table.
-                </div>
-              </td>
-            </tr>`;
+        <tr>
+          <td colspan="2"><div class="error-message">Please select a role.</div></td>
+        </tr>`;
           return;
         }
 
         try {
-          // Show loading state
           columnsBody.innerHTML = `
-            <tr>
-              <td colspan="3">
-                <div class="loading-message">
-                  <svg class="loading-spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M12 2a10 10 0 0 1 10 10"></path>
-                  </svg>
-                  Loading columns...
-                </div>
-              </td>
-            </tr>`;
+        <tr>
+          <td colspan="2"><div class="loading-message">Loading columns...</div></td>
+        </tr>`;
 
-          // Fetch current visibility settings
+          // Fetch current visibility settings from the server
           const visibilityResponse = await fetch(
             `/api/column-visibility/${userRoleId}/${tableName}`
           );
-
           const hiddenColumns = await visibilityResponse.json();
 
-          // Fetch columns with visibility
+          // MODIFIED: Initialize the local state with data from the server
+          pendingHiddenColumns = new Set(hiddenColumns);
 
+          // Fetch all columns for the table
           const response = await fetch(
             `/api/columns/${tableName}/${userRoleId}`
           );
@@ -334,74 +336,63 @@
           }
 
           const columns = await response.json();
-
           if (!Array.isArray(columns) || columns.length === 0) {
             throw new Error("No columns available for this table");
           }
 
           columnsBody.innerHTML = "";
-          console.log(columns);
-          console.log(hiddenColumns);
-
           columns.forEach((col) => {
             const row = document.createElement("tr");
-
             const nameCell = document.createElement("td");
             nameCell.textContent = col.COLUMN_NAME;
             row.appendChild(nameCell);
 
-            const typeCell = document.createElement("td");
-            typeCell.textContent = col.DATA_TYPE;
-            row.appendChild(typeCell);
-
             const visibilityCell = document.createElement("td");
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
-            checkbox.checked = !hiddenColumns.includes(col.COLUMN_NAME);
+            // Checkbox state is based on our local `pendingHiddenColumns` Set
+            checkbox.checked = !pendingHiddenColumns.has(col.COLUMN_NAME);
+
+            // MODIFIED: onchange now updates the local state, not the server
             checkbox.onchange = () =>
-              updateColumnVisibility(col.COLUMN_NAME, checkbox.checked);
+              handleCheckboxChange(col.COLUMN_NAME, checkbox.checked);
+
             visibilityCell.appendChild(checkbox);
             row.appendChild(visibilityCell);
-
             columnsBody.appendChild(row);
           });
         } catch (error) {
           console.error("Error fetching columns:", error);
           columnsBody.innerHTML = `
-            <tr>
-              <td colspan="3">
-                <div class="error-message">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12" y2="16"></line>
-                  </svg>
-                  ${error.message}
-                </div>
-              </td>
-            </tr>`;
+        <tr>
+          <td colspan="2"><div class="error-message">${error.message}</div></td>
+        </tr>`;
         }
       }
 
-      async function updateColumnVisibility(columnName, isVisible) {
+      // NEW: This function updates the local state (the Set) when a checkbox is toggled.
+      function handleCheckboxChange(columnName, isVisible) {
+        if (isVisible) {
+          // If visible, remove it from the hidden set
+          pendingHiddenColumns.delete(columnName);
+        } else {
+          // If not visible, add it to the hidden set
+          pendingHiddenColumns.add(columnName);
+        }
+        console.log("Pending hidden columns:", pendingHiddenColumns);
+      }
+
+      // NEW: This function is called by the "Save" button.
+      async function saveVisibilityChanges() {
+        if (!userRoleId || !tableName) {
+          alert("Please select a role first.");
+          return;
+        }
+
+        // Convert the Set of hidden columns to a comma-separated string for the API
+        const hiddenColumnsString = Array.from(pendingHiddenColumns).join(",");
+
         try {
-          // Get current hidden columns
-          const visibilityResponse = await fetch(
-            `/api/column-visibility/${userRoleId}/${tableName}`
-          );
-          const currentHiddenColumns = await visibilityResponse.json();
-
-          // Update hidden columns list
-          let hiddenColumns;
-          if (isVisible) {
-            hiddenColumns = currentHiddenColumns
-              .filter((col) => col !== columnName)
-              .join(",");
-          } else {
-            hiddenColumns = [...currentHiddenColumns, columnName].join(",");
-          }
-
-          // Save updated visibility settings
           const response = await fetch("/api/column-visibility", {
             method: "POST",
             headers: {
@@ -410,24 +401,28 @@
             body: JSON.stringify({
               RoleId: userRoleId,
               TableName: tableName,
-              HiddenColumn: hiddenColumns,
+              HiddenColumn: hiddenColumnsString,
             }),
           });
 
           if (!response.ok) {
-            throw new Error("Failed to update column visibility");
+            throw new Error("Failed to save changes to the server.");
           }
 
-          // Refresh the columns display
-          await fetchColumns();
+          const result = await response.json();
+          alert(result.message || "Visibility settings saved successfully!");
 
-          console.log("Column visibility updated successfully");
+          // Optional: Refresh the columns to confirm the saved state
+          // await fetchColumns();
         } catch (error) {
-          console.error("Error updating column visibility:", error);
+          console.error("Error saving column visibility:", error);
+          alert(`Error: ${error.message}`);
         }
       }
 
-      // Initialize
+      // REMOVED: The old `updateColumnVisibility` function is no longer needed.
+
+      // Initialize the page
       fetchRoles();
     </script>
   </body>
