@@ -236,7 +236,7 @@ app.get("/api/column-visibility/:RoleId/:TableName", async (req, res) => {
 
 // POST endpoint to create AuditTrial data
 app.post("/api/audittrial", async (req, res) => {
-  const { Action, TableName, UserId, RecordId } = req.body;
+  const { Action, TableName, UserId, RecordId, FileName } = req.body;
   try {
     const pool = await poolPromise;
     await pool
@@ -245,9 +245,10 @@ app.post("/api/audittrial", async (req, res) => {
       .input("RecordId", sql.Int, RecordId)
       .input("TableName", sql.NVarChar, TableName)
       .input("UserId", sql.Int, UserId)
+      .input("FileName", sql.NVarChar, FileName)
       // .input("Timestamp", sql.DateTime, Timestamp)
       .query(
-        "INSERT INTO AuditTrial (Action, TableName, RecordId, UserId) VALUES (@Action, @TableName, @RecordId, @UserId)"
+        "INSERT INTO AuditTrial (Action, TableName, RecordId, UserId, FileName) VALUES (@Action, @TableName, @RecordId, @UserId, @FileName)"
       );
     res.status(201).json({ message: "AuditTrial record created." });
   } catch (err) {

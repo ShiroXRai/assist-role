@@ -88,12 +88,26 @@
   </head>
   <body>
     <div class="container">
-      <h1>AuditTrial Records</h1>
+      <h1>Log Activity Records</h1>
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Search Log Activity..."
+        style="
+          width: 100%;
+          padding: 10px;
+          margin-bottom: 20px;
+          border-radius: var(--border-radius);
+          border: 1px solid #ccc;
+          font-size: 16px;
+        "
+      />
       <table id="audittrial-table">
         <thead>
           <tr>
             <th>Action</th>
             <th>TableName</th>
+            <th>FileName</th>
             <th>RecordId</th>
             <th>Username</th>
             <th>Timestamp</th>
@@ -119,6 +133,7 @@
             row.innerHTML = `
               <td>${record.Action}</td>
               <td>${record.TableName}</td>
+              <td>${record.FileName ? record.FileName : ""}</td>
               <td>${record.RecordId}</td>
               <td>${record.Username}</td>
               <td>${new Date(record.Timestamp)
@@ -134,6 +149,21 @@
 
       // Fetch data on page load
       fetchAuditTrial();
+
+      // Search filter functionality
+      document
+        .getElementById("search-input")
+        .addEventListener("input", function () {
+          const filter = this.value.toLowerCase();
+          const rows = document.querySelectorAll("#audittrial-table tbody tr");
+          rows.forEach((row) => {
+            const cells = row.querySelectorAll("td");
+            const match = Array.from(cells).some((cell) =>
+              cell.textContent.toLowerCase().includes(filter)
+            );
+            row.style.display = match ? "" : "none";
+          });
+        });
     </script>
   </body>
 </html>
